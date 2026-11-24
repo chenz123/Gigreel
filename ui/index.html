@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gigreel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.png" alt="" class="brand-icon" />
+      <span class="brand-name">Gigreel</span>
+    </div>
+    <div class="summary" id="summary">No clips yet</div>
+    <div class="topbar-right">
+      <span class="chip warn hidden" id="fpcalcWarning" title="Install Chromaprint (fpcalc) and put it on PATH to identify songs.">
+        <i data-icon="alert"></i> Song check unavailable
+      </span>
+      <button class="btn ghost" id="settingsBtn" title="Settings"><i data-icon="sliders"></i> Settings</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Clip list -->
+    <section class="panel clips-panel">
+      <div class="panel-head">
+        <h2>Clips</h2>
+        <button class="btn small" id="addBtn" title="Add clips (Ctrl+O)"><i data-icon="plus"></i> Add</button>
+      </div>
+      <div class="clip-list" id="clipList"></div>
+      <div class="empty-list" id="emptyList">
+        <i data-icon="film" class="empty-icon"></i>
+        <p>Drop videos here</p>
+        <p class="muted">or <a href="#" id="emptyAdd">browse for files</a></p>
+      </div>
+    </section>
+
+    <!-- Preview + inspector -->
+    <section class="center">
+      <div class="stage" id="stage">
+        <div class="frame hidden" id="frame">
+          <canvas id="bgCanvas"></canvas>
+          <video id="video" preload="auto" playsinline></video>
+          <div class="title-overlay" id="titleOverlay"><span></span></div>
+          <div class="proxy-overlay hidden" id="proxyOverlay">
+            <div class="spinner"></div>
+            <div>Preparing preview… <span id="proxyPct">0%</span></div>
+            <div class="muted small">This format can't play directly, so a light copy is being made. Export uses the original.</div>
+          </div>
+        </div>
+        <div class="stage-empty" id="stageEmpty">
+          <i data-icon="film" class="empty-icon"></i>
+          <p>Select a clip to preview and trim it</p>
+        </div>
+      </div>
+
+      <div class="transport" id="transport">
+        <div class="timeline" id="timeline">
+          <div class="track">
+            <div class="range" id="range"></div>
+            <div class="handle in" id="handleIn" title="Drag to set In"></div>
+            <div class="handle out" id="handleOut" title="Drag to set Out"></div>
+            <div class="playhead" id="playhead"></div>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="group">
+            <button class="icon-btn" id="goInBtn" title="Go to In (Home)"><i data-icon="skipBack"></i></button>
+            <button class="icon-btn" id="stepBackBtn" title="Previous frame (,)"><i data-icon="chevLeft"></i></button>
+            <button class="icon-btn primary" id="playBtn" title="Play / pause (Space)"><i data-icon="play"></i></button>
+            <button class="icon-btn" id="stepFwdBtn" title="Next frame (.)"><i data-icon="chevRight"></i></button>
+            <button class="icon-btn" id="goOutBtn" title="Go to Out (End)"><i data-icon="skipFwd"></i></button>
+            <button class="icon-btn" id="playRangeBtn" title="Play the trimmed range (P)"><i data-icon="repeat"></i></button>
+            <button class="icon-btn" id="muteBtn" title="Mute (M)"><i data-icon="volume"></i></button>
+          </div>
+          <div class="timecode"><span id="curTime">0:00.00</span><span class="muted"> / </span><span id="durTime" class="muted">0:00.00</span></div>
+          <div class="group">
+            <button class="btn small" id="setInBtn" title="Set In at playhead (I)"><i data-icon="bracketL"></i> Set In <kbd>I</kbd></button>
+            <button class="btn small" id="setOutBtn" title="Set Out at playhead (O)">Set Out <kbd>O</kbd> <i data-icon="bracketR"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="inspector" id="inspector">
+        <div class="field">
+          <label for="inInput">In</label>
+          <input id="inInput" class="mono" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label for="outInput">Out</label>
+          <input id="outInput" class="mono" spellcheck="false" />
+        </div>
+        <div class="field narrow">
+          <label>Length</label>
+          <div class="readout mono" id="lenOut">–</div>
+        </div>
+        <div class="field grow">
+          <label for="artistInput">Artist</label>
+          <input id="artistInput" placeholder="Artist" spellcheck="false" />
+        </div>
+        <div class="field grow">
+          <label for="titleInput">Title</label>
+          <input id="titleInput" placeholder="Song title" spellcheck="false" />
+        </div>
+        <div class="field verify">
+          <label>&nbsp;</label>
+          <button class="btn" id="identifyBtn" title="Fingerprint the audio from the In point and check it against AcoustID"><i data-icon="wave"></i> Identify song</button>
+        </div>
+        <div class="verify-row" id="verifyRow">
+          <span class="verify-status" id="verifyStatus"></span>
+          <div class="matches" id="matches"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Output settings -->
+    <section class="panel output-panel">
+      <div class="panel-head"><h2>Output</h2></div>
+      <div class="form">
+        <div class="field">
+          <label for="formatSel">Format</label>
+          <select id="formatSel"></select>
+        </div>
+        <div class="field">
+          <label>Framing</label>
+          <div class="segmented" id="fitSeg">
+            <button data-value="blur">Blur fill</button>
+            <button data-value="fit">Fit</button>
+            <button data-value="fill">Crop</button>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="fpsSel">Frame rate</label>
+            <select id="fpsSel">
+              <option value="24">24 fps</option>
+              <option value="25">25 fps</option>
+              <option value="30">30 fps</option>
+              <option value="50">50 fps</option>
+              <option value="60">60 fps</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="qualitySel">Quality</label>
+            <select id="qualitySel">
+              <option value="high">High</option>
+              <option value="balanced">Balanced</option>
+              <option value="small">Small file</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="encoderSel">Encoder</label>
+          <select id="encoderSel"></select>
+        </div>
+
+        <h3>Song title</h3>
+        <div class="row2">
+          <div class="field">
+            <label for="overlaySecs">Show for</label>
+            <div class="suffix-input"><input id="overlaySecs" type="number" min="0" max="120" step="0.5" /><span>sec</span></div>
+          </div>
+          <div class="field">
+            <label for="overlayPos">Position</label>
+            <select id="overlayPos">
+              <option value="bottom">Bottom</option>
+              <option value="center">Center</option>
+              <option value="top">Top</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="overlayScale">Text size <span class="muted" id="overlayScaleOut">100%</span></label>
+          <input id="overlayScale" type="range" min="50" max="200" step="5" />
+        </div>
+        <p class="hint">0 sec keeps the title on screen for the whole clip.</p>
+
+        <h3>Polish</h3>
+        <label class="switch"><input type="checkbox" id="fadesChk" /><span class="slider"></span> Fade between clips</label>
+        <label class="switch"><input type="checkbox" id="normalizeChk" /><span class="slider"></span> Even out loudness</label>
+      </div>
+    </section>
+  </main>
+
+  <footer class="exportbar">
+    <div class="out-path" id="outPathBox" title="Click to choose where to save">
+      <i data-icon="folder"></i>
+      <span id="outPath" class="muted">Choose where to save…</span>
+    </div>
+    <div class="progress hidden" id="progress">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-text"><span id="progressPct">0%</span><span class="muted" id="progressEta"></span></div>
+    </div>
+    <div class="result hidden" id="result">
+      <i data-icon="check" class="ok"></i>
+      <span id="resultName"></span>
+      <button class="btn small ghost" id="playResultBtn">Play</button>
+      <button class="btn small ghost" id="revealBtn">Show in folder</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost small" id="logBtn" title="Show ffmpeg log"><i data-icon="terminal"></i> Log</button>
+    <button class="btn danger hidden" id="cancelBtn">Cancel</button>
+    <button class="btn accent" id="exportBtn" title="Export (Ctrl+E)"><i data-icon="download"></i> Export</button>
+  </footer>
+
+  <div class="log-drawer hidden" id="logDrawer">
+    <div class="log-head"><span>ffmpeg log</span><button class="icon-btn" id="logClose"><i data-icon="x"></i></button></div>
+    <pre id="logText"></pre>
+  </div>
+
+  <div class="drop-overlay hidden" id="dropOverlay"><div><i data-icon="plus"></i><p>Drop to add clips</p></div></div>
+
+  <div class="modal-backdrop hidden" id="settingsModal">
+    <div class="modal">
+      <h2>Settings</h2>
+      <div class="field">
+        <label for="keyInput">AcoustID API key</label>
+        <div class="key-row">
+          <input id="keyInput" type="password" spellcheck="false" autocomplete="off" />
+          <button class="btn small ghost" id="keyToggle">Show</button>
+        </div>
+        <p class="hint">Used to identify songs. Get a free key at <a href="#" id="acoustLink">acoustid.org/new-application</a>. Stored in Windows Credential Manager.</p>
+      </div>
+      <div class="tools" id="toolsList"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="settingsCancel">Cancel</button>
+        <button class="btn accent" id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="missingModal">
+    <div class="modal">
+      <h2>ffmpeg is missing</h2>
+      <p>Gigreel uses <b>ffmpeg</b> and <b>ffprobe</b> to read and render video. Install them and make sure they're on your PATH, then restart the app.</p>
+      <p class="mono small">winget install Gyan.FFmpeg</p>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <script src="icons.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
